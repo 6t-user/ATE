@@ -1,0 +1,2271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Huella de suelo según cantidad de pisos — Planificación 2050</title>
+<!-- MapLibre GL JS: free, open-source, no API key / no billing required. -->
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+  :root{
+    --bg: #EEF2F3;
+    --panel: #FBFDFD;
+    --panel-2: #FFFFFF;
+    --ink: #12293D;
+    --ink-muted: #4B6472;
+    --ink-faint: #7C93A0;
+    --border: #D2DEE2;
+    --grid: #D7E1E4;
+    --blue: #0E7BA8;
+    --blue-soft: rgba(14,123,168,0.12);
+    --orange: #D9622B;
+    --orange-soft: rgba(217,98,43,0.12);
+    --slot-2: #9C6B00;
+    --slot-3: #6E5DC6;
+    --slot-4: #1B8A6B;
+    --slot-5: #8A3626;
+    --slot-6: #C2568A;
+    --status-good: #1E8E5A;
+    --status-bad: #C1392B;
+    --shadow: 0 1px 2px rgba(18,41,61,0.06), 0 6px 20px rgba(18,41,61,0.06);
+    --radius: 10px;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
+  }
+  :root[data-theme="dark"]{
+    --bg: #0B1620;
+    --panel: #101F2E;
+    --panel-2: #132538;
+    --ink: #EAF1F5;
+    --ink-muted: #9FB4C0;
+    --ink-faint: #6E8695;
+    --border: #1E3547;
+    --grid: #223849;
+    --blue: #3799C7;
+    --blue-soft: rgba(55,153,199,0.16);
+    --orange: #DC7043;
+    --orange-soft: rgba(220,112,67,0.16);
+    --slot-2: #B8890F;
+    --slot-3: #8878D6;
+    --slot-4: #2E9E7A;
+    --slot-5: #9C4A38;
+    --slot-6: #CD649E;
+    --status-good: #3FBE85;
+    --status-bad: #E2604F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #0B1620;
+      --panel: #101F2E;
+      --panel-2: #132538;
+      --ink: #EAF1F5;
+      --ink-muted: #9FB4C0;
+      --ink-faint: #6E8695;
+      --border: #1E3547;
+      --grid: #223849;
+      --blue: #3799C7;
+      --blue-soft: rgba(55,153,199,0.16);
+      --orange: #DC7043;
+      --orange-soft: rgba(220,112,67,0.16);
+      --slot-2: #B8890F;
+      --slot-3: #8878D6;
+      --slot-4: #2E9E7A;
+      --slot-5: #9C4A38;
+      --slot-6: #CD649E;
+      --status-good: #3FBE85;
+      --status-bad: #E2604F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before{
+    content:"";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.35;
+    z-index: 0;
+  }
+  .wrap{
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .eyebrow{
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin: 0 0 8px;
+  }
+  h1{
+    font-size: clamp(1.5rem, 2.6vw, 2.15rem);
+    line-height: 1.15;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .subtitle{
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    max-width: 62ch;
+    margin: 0;
+  }
+  .lang-toggle{
+    display:flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    flex-shrink: 0;
+  }
+  .lang-toggle button{
+    border: none;
+    background: transparent;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .lang-toggle button[aria-pressed="true"]{
+    background: var(--blue);
+    color: #fff;
+  }
+  .lang-toggle button:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible{
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+
+  /* ---------- equipment list layout ---------- */
+  #equipos-container{
+    display:flex;
+    flex-direction:column;
+  }
+  .equipo-card{ padding-top: 0; }
+  .equipo-card + .equipo-card{
+    margin-top: 30px;
+    padding-top: 30px;
+    border-top: 1px dashed var(--border);
+  }
+  .equipo-header{
+    display:flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .equipo-heading{ flex:1; min-width:0; }
+  .equipo-eyebrow{ margin: 0 0 4px; }
+  .name-input{
+    display:block;
+    width:100%;
+    font-family: var(--font-ui);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    padding: 2px 0 4px;
+  }
+  .name-input:hover{ border-bottom-color: var(--border); }
+  .name-input:focus{ outline:none; border-bottom-color: var(--blue); }
+  .name-input::placeholder{ color: var(--ink-faint); font-weight: 600; }
+  .btn-remove{
+    flex-shrink:0;
+    width: 34px; height: 34px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--ink-muted);
+    border-radius: 8px;
+    font-size: 1rem;
+    line-height:1;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .btn-remove:hover{ color: var(--orange); border-color: var(--orange); }
+
+  .equipo-grid{
+    display: grid;
+    grid-template-columns: minmax(300px, 400px) 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px){
+    .equipo-grid{ grid-template-columns: 1fr; }
+  }
+  .col{ display:flex; flex-direction:column; gap: 20px; min-width: 0; }
+
+  .add-equipo-btn{
+    margin: 26px 0 28px;
+    width: 100%;
+    padding: 14px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--blue);
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .add-equipo-btn:hover{ border-color: var(--blue); background: var(--blue-soft); }
+
+  .empty-state{
+    text-align:center;
+    padding: 40px 20px;
+    color: var(--ink-faint);
+    font-size: 0.9rem;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  .total-panel{ border-top: 3px solid var(--blue); }
+
+  /* ---------- panorama ---------- */
+  .panorama-panel{ border-top: 3px solid var(--blue); margin-bottom: 26px; }
+  .panorama-title{ font-size: 1.15rem; font-weight: 700; margin: 0 0 6px; }
+  .panorama-hint{
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    max-width: 78ch;
+    margin: 0 0 20px;
+  }
+  .panorama-stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 20px 34px;
+    margin-bottom: 20px;
+  }
+  .panorama-stats .stat{ display:flex; flex-direction:column; gap:3px; }
+  .panorama-stats .stat-label{
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+  }
+  .panorama-stats .stat-value{
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  #panorama-stat-freed{ color: var(--blue); }
+  #panorama-stat-exceed{ color: var(--orange); }
+  .panorama-wrap{ display:flex; justify-content:center; }
+  .panorama-frame{ fill: var(--panel-2); stroke: none; }
+  .panorama-frame-outline{ fill: none; stroke: var(--ink); stroke-width: 2; }
+  .panorama-grid{ stroke: var(--grid); stroke-width: 1; }
+  .panorama-parcel{ stroke: var(--panel); stroke-width: 2; }
+  .panorama-parcel-label{
+    fill: #fff;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .panorama-parcel-sub{
+    fill: #fff;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    opacity: 0.92;
+  }
+  .panorama-hatch-line{ stroke: var(--ink-faint); stroke-width: 1; }
+  .panorama-base-line{ stroke: var(--ink); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .panorama-base-label{
+    fill: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+  .panorama-empty{ margin: 10px 0 0; }
+  .panorama-legend{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-top: 18px;
+    font-size: 0.82rem;
+  }
+  .panorama-legend .item{ display:flex; align-items:center; gap:7px; }
+  .panorama-legend .swatch{ width:11px; height:11px; border-radius:3px; flex-shrink:0; }
+  .panorama-legend .name{ font-weight:600; color: var(--ink); }
+  .panorama-legend .value{
+    font-family: var(--font-mono);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .panorama-scale-note{
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    margin-top: 14px;
+  }
+  /* background covers HTML legend swatches; fill covers SVG parcels — same classes serve both */
+  .slot-1{ fill: var(--blue); background: var(--blue); }
+  .slot-2{ fill: var(--slot-2); background: var(--slot-2); }
+  .slot-3{ fill: var(--slot-3); background: var(--slot-3); }
+  .slot-4{ fill: var(--slot-4); background: var(--slot-4); }
+  .slot-5{ fill: var(--slot-5); background: var(--slot-5); }
+  .slot-6{ fill: var(--slot-6); background: var(--slot-6); }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px;
+  }
+  .panel-title{
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 16px;
+    display:flex;
+    align-items:center;
+    gap: 8px;
+  }
+  .panel-title .dot{
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--blue);
+    flex-shrink:0;
+  }
+
+  /* ---------- inputs ---------- */
+  .field{ margin-bottom: 20px; }
+  .field:last-child{ margin-bottom: 0; }
+  .field-label{
+    display:block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .field-hint{
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin: 0 0 10px;
+  }
+  .sbp-row{
+    display:flex;
+    gap: 8px;
+  }
+  .sbp-row input[type="number"]{
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .sbp-row input[type="number"]:focus{
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .unit-toggle{
+    display:flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .unit-toggle button{
+    border: none;
+    background: var(--panel-2);
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0 14px;
+    cursor: pointer;
+    border-left: 1px solid var(--border);
+  }
+  .unit-toggle button:first-child{ border-left:none; }
+  .unit-toggle button[aria-pressed="true"]{
+    background: var(--blue);
+    color: #fff;
+  }
+
+  /* ---------- location field (per-equipo geocoding) ---------- */
+  .location-address-row{
+    display:flex;
+    gap: 8px;
+  }
+  .location-address-row input[type="text"]{
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+  }
+  .location-address-row input[type="text"]:focus{
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .btn-geocode{
+    flex-shrink: 0;
+    border: 1px solid var(--blue);
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 0 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .btn-geocode:hover{ background: var(--blue); color: #fff; }
+  .btn-geocode:disabled{ opacity: 0.5; cursor: default; }
+  .location-coords-row{
+    display:flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .coord-field{
+    flex: 1;
+    display:flex;
+    align-items:center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-2);
+    padding: 0 10px;
+  }
+  .coord-field span{
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .coord-field input[type="number"]{
+    flex:1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ink);
+    padding: 8px 0;
+  }
+  .coord-field input[type="number"]:focus{ outline:none; }
+  .coord-field:focus-within{ border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .location-status{
+    font-size: 0.78rem;
+    margin: 8px 0 0;
+    min-height: 1.1em;
+    color: var(--ink-faint);
+  }
+  .location-status[data-state="loading"]{ color: var(--ink-muted); }
+  .location-status[data-state="ok"]{ color: var(--status-good); font-weight: 600; }
+  .location-status[data-state="error"]{ color: var(--status-bad); font-weight: 600; }
+  .btn-view-map{
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--ink-muted);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.78rem;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .btn-view-map:hover{ border-color: var(--blue); color: var(--blue); }
+
+  /* ---------- tabs ---------- */
+  .tabs{
+    display:flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .tab-btn{
+    border: none;
+    background: transparent;
+    color: var(--ink-muted);
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 10px 4px;
+    margin-right: 22px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transform: translateY(1px);
+  }
+  .tab-btn.active{ color: var(--ink); border-bottom-color: var(--orange); }
+  .tab-btn:hover:not(.active){ color: var(--ink); }
+
+  /* ---------- map section ---------- */
+  .map-panel{ border-top: 3px solid var(--blue); }
+  .map-toolbar{
+    display:flex;
+    flex-wrap: wrap;
+    align-items:center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 14px 0;
+  }
+  #btn-map-fit{
+    border: 1px solid var(--blue);
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #btn-map-fit:hover{ background: var(--blue); color: #fff; }
+  .map-attrib-hint{
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+  .map-wrap{
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  #map3d{
+    width: 100%;
+    height: 560px;
+  }
+  .map-empty{ border: none; border-radius: 0; }
+  .map-overlap-note{
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin: 10px 0 0;
+  }
+  .map-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 14px;
+    margin-top: 16px;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+  }
+  .map-legend .item{ display:flex; align-items:center; gap:6px; }
+  .map-legend .swatch{ width:11px; height:11px; border-radius:3px; flex-shrink:0; }
+  .map-legend .name{ color: var(--ink); font-weight: 600; }
+  .map-legend .value{ font-family: var(--font-mono); color: var(--ink-faint); }
+  .map-unplaced{
+    margin-top: 12px;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+  .map-unplaced strong{ color: var(--ink-muted); }
+
+  .maplibregl-popup-content{
+    background: var(--panel);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+  }
+  .maplibregl-popup-content strong{ font-size: 0.88rem; }
+  .maplibregl-popup-tip{ border-top-color: var(--panel); border-bottom-color: var(--panel); }
+
+  .pisos-value-row{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .pisos-value{
+    font-family: var(--font-mono);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--orange);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .pisos-value-unit{
+    font-size: 0.95rem;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  input[type="range"]{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--orange) 0%, var(--orange) var(--pct, 10%), var(--grid) 0);
+    outline: none;
+    margin: 6px 0 4px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--orange);
+    border: 3px solid var(--panel);
+    box-shadow: 0 0 0 1px var(--orange), var(--shadow);
+    cursor: pointer;
+    margin-top: -8px;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--orange);
+    border: 3px solid var(--panel);
+    box-shadow: 0 0 0 1px var(--orange);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track{
+    height: 6px;
+    border-radius: 999px;
+    background: var(--grid);
+  }
+  .ticks{
+    display:flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    padding: 0 2px;
+  }
+
+  /* ---------- hero result ---------- */
+  .hero-panel{
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  }
+  .hero-label{
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin: 0 0 6px;
+  }
+  .hero-number{
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--orange);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.02;
+    font-size: clamp(2.6rem, 6.4vw, 3.6rem);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .hero-number .unit{
+    font-size: 0.42em;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-left: 6px;
+  }
+  .hero-secondary{
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    margin: 4px 0 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-divider{
+    height:1px; background: var(--border); margin: 16px 0;
+  }
+  .comparison{
+    font-size: 0.98rem;
+    color: var(--ink);
+    margin: 0;
+  }
+  .comparison strong{ color: var(--orange); font-variant-numeric: tabular-nums; }
+
+  /* ---------- building diagram ---------- */
+  .diagram-wrap{
+    display:flex;
+    justify-content:center;
+  }
+  svg{ display:block; max-width:100%; height:auto; }
+  .floor-rect{ fill: var(--blue-soft); stroke: var(--blue); stroke-width: 1.5; }
+  .mullion{ stroke: var(--blue); stroke-width: 1; opacity: 0.35; }
+  .ghost-footprint{ fill:none; stroke: var(--ink-faint); stroke-width:1; stroke-dasharray: 4 3; opacity:0.6; }
+  .ground-line{ stroke: var(--ink); stroke-width: 2; }
+  .dim-line{ stroke: var(--orange); stroke-width: 1.3; }
+  .dim-label{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--orange);
+  }
+  .diagram-caption{
+    text-align:center;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin-top: 10px;
+  }
+
+  /* ---------- chart ---------- */
+  .chart-legend{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+  }
+  .chart-legend .item{ display:flex; align-items:center; gap:6px; }
+  .swatch{ width:14px; height:3px; border-radius: 2px; display:inline-block; }
+  .swatch.dot{ width:9px; height:9px; border-radius:50%; }
+  .swatch.dashed{
+    background: none;
+    border-top: 2px dashed var(--ink-faint);
+    height:0;
+  }
+  .axis{ stroke: var(--grid); stroke-width: 1; }
+  .axis-label{ fill: var(--ink-faint); font-size: 10.5px; font-family: var(--font-ui); }
+  .gridline{ stroke: var(--grid); stroke-width: 1; }
+  .curve{ fill:none; stroke: var(--blue); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .curve-area{ fill: var(--blue); opacity: 0.07; }
+  .base-ref-line{ stroke: var(--ink-faint); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .base-ref-label{ fill: var(--ink-faint); font-size: 10.5px; font-family: var(--font-mono); }
+  .current-marker{ fill: var(--orange); stroke: var(--panel); stroke-width: 2.5; }
+  .hover-line{ stroke: var(--ink-faint); stroke-width: 1; opacity: 0; pointer-events:none; }
+  .hover-dot{ fill: var(--ink); opacity: 0; pointer-events:none; }
+  .chart-overlay{ fill: transparent; cursor: crosshair; }
+  .tooltip-bg{
+    fill: var(--ink);
+    opacity: 0;
+    pointer-events:none;
+  }
+  .tooltip-text{
+    fill: var(--panel);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0;
+    pointer-events:none;
+  }
+  .axis-title{
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    text-align:center;
+    margin-top: 4px;
+  }
+
+  /* ---------- table ---------- */
+  details.table-toggle{
+    margin-top: 14px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+  details.table-toggle summary{
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--blue);
+    list-style: none;
+  }
+  details.table-toggle summary::-webkit-details-marker{ display:none; }
+  details.table-toggle summary::before{
+    content: "▸ ";
+    display:inline-block;
+    transition: transform 0.15s ease;
+  }
+  details.table-toggle[open] summary::before{ content: "▾ "; }
+  .table-scroll{ overflow-x:auto; margin-top: 10px; }
+  table{
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  table th, table td{
+    text-align: right;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  table th:first-child, table td:first-child{ text-align:left; }
+  table th{ color: var(--ink-muted); font-weight:700; }
+  table tr.current-row td{ color: var(--orange); font-weight:700; background: var(--orange-soft); }
+
+  /* ---------- footer ---------- */
+  footer{
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    max-width: 90ch;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow" data-i18n="eyebrow">Herramienta de planificación · Horizonte 2050</p>
+      <h1 data-i18n="title">Huella de suelo según cantidad de pisos</h1>
+      <p class="subtitle" data-i18n="subtitle">Simulador de superficie de suelo ocupada a superficie de plancher constante, para estimar los requerimientos de distintos equipamientos públicos.</p>
+    </div>
+    <div class="lang-toggle" role="group" aria-label="Idioma / Langue">
+      <button type="button" id="btn-lang-es" aria-pressed="true">ES</button>
+      <button type="button" id="btn-lang-fr" aria-pressed="false">FR</button>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Vistas / Vues">
+    <button type="button" class="tab-btn active" id="tab-btn-tool" role="tab" aria-selected="true" data-i18n="tabToolLabel">Herramienta</button>
+    <button type="button" class="tab-btn" id="tab-btn-map" role="tab" aria-selected="false" data-i18n="tabMapLabel">Mapa 3D</button>
+  </div>
+
+  <div id="panel-tool" role="tabpanel">
+
+  <main id="equipos-container"></main>
+
+  <p class="empty-state" id="empty-state" data-i18n="emptyStateText" hidden>Todavía no agregaste ningún equipamiento. Usá el botón de abajo para sumar el primero.</p>
+
+  <button type="button" class="add-equipo-btn" id="btn-add-equipo" data-i18n="addEquipoLabel">+ Agregar equipamiento</button>
+
+  <section class="panel panorama-panel">
+    <p class="eyebrow" data-i18n="panoramaEyebrow">Panorama general</p>
+    <p class="panorama-title" data-i18n="panoramaTitle">Plano de ocupación de suelo</p>
+    <p class="panorama-hint" data-i18n="panoramaHint">Cada rectángulo representa, a escala, la huella actual de un equipamiento. El área rayada muestra el suelo liberado respecto de la referencia de 2 pisos por equipamiento.</p>
+
+    <div class="panorama-stats">
+      <div class="stat">
+        <span class="stat-label" data-i18n="statReferenceLabel">Referencia (2 pisos c/u)</span>
+        <span class="stat-value" id="panorama-stat-reference">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label" data-i18n="statCurrentLabel">Ocupado actual</span>
+        <span class="stat-value" id="panorama-stat-current">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label" data-i18n="statFreedLabel">Suelo liberado</span>
+        <span class="stat-value" id="panorama-stat-freed">—</span>
+      </div>
+      <div class="stat" id="panorama-stat-exceed-wrap" hidden>
+        <span class="stat-label" data-i18n="statExceedLabel">Por encima de la referencia</span>
+        <span class="stat-value" id="panorama-stat-exceed">—</span>
+      </div>
+    </div>
+
+    <div class="panorama-wrap">
+      <svg id="panorama-svg" viewBox="0 0 640 420" role="img" aria-labelledby="panorama-desc">
+        <desc id="panorama-desc">Plano esquemático que muestra, a escala, la superficie de suelo ocupada por cada equipamiento y el suelo liberado respecto de la referencia.</desc>
+      </svg>
+    </div>
+
+    <p class="empty-state panorama-empty" id="panorama-empty" data-i18n="emptyStateText" hidden>Todavía no agregaste ningún equipamiento. Usá el botón de abajo para sumar el primero.</p>
+
+    <div class="panorama-legend" id="panorama-legend"></div>
+    <p class="panorama-scale-note" id="panorama-scale-note"></p>
+  </section>
+
+  <section class="panel hero-panel total-panel">
+    <p class="hero-label" data-i18n="totalSectionTitle">Total general de superficie de suelo ocupada</p>
+    <p class="hero-number" id="total-hero-number">0<span class="unit">m²</span></p>
+    <p class="hero-secondary" id="total-hero-secondary">0 ha</p>
+  </section>
+
+  </div>
+
+  <div id="panel-map" role="tabpanel" hidden>
+    <section class="panel map-panel">
+      <p class="eyebrow" data-i18n="mapEyebrow">Vista territorial</p>
+      <p class="panorama-title" data-i18n="mapTitle">Mapa 3D — Cantón de Ginebra</p>
+      <p class="panorama-hint" data-i18n="mapHint">Ubicá cada equipamiento en una dirección o coordenada real dentro de Ginebra. La altura del volumen representa la cantidad de pisos y su base representa la huella de suelo calculada: movés un slider en la pestaña Herramienta y el edificio crece o baja en el mapa.</p>
+
+      <div class="map-toolbar">
+        <button type="button" id="btn-map-fit" data-i18n="mapFitLabel">Centrar en los equipamientos</button>
+        <p class="map-attrib-hint" data-i18n="mapAttribHint">Datos de mapa: © colaboradores de OpenStreetMap · estilo OpenFreeMap · MapLibre GL JS</p>
+      </div>
+
+      <div class="map-wrap">
+        <div id="map3d"></div>
+        <p class="empty-state map-empty" id="map-empty" data-i18n="mapEmptyText" hidden>Todavía no agregaste ningún equipamiento. Volvé a la pestaña "Herramienta" para sumar el primero.</p>
+      </div>
+
+      <p class="map-overlap-note" data-i18n="mapOverlapNote">El volumen representa el edificio proyectado y puede superponerse a construcciones existentes en el sitio. Altura estimada: 3,2 m por piso.</p>
+
+      <div class="map-legend" id="map-legend"></div>
+      <div class="map-unplaced" id="map-unplaced"></div>
+    </section>
+  </div>
+
+  <footer data-i18n="footerNote">
+    Modelo simplificado de planificación: asume que la superficie bruta de plancher total se mantiene constante independientemente de la cantidad de pisos, sin descontar la superficie adicional que suele requerir la circulación vertical (escaleras, ascensores, núcleos estructurales) en edificios más altos.
+  </footer>
+</div>
+
+<!-- MapLibre GL JS: free, open-source WebGL map renderer, no API key / no billing required. -->
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var HA_TO_M2 = 10000;
+  var BASE_PISOS = 2;
+
+  /* ---------------- Map constants (free stack: MapLibre GL JS + OpenFreeMap tiles + Nominatim) ---------------- */
+  // OpenFreeMap "liberty" style: free vector tiles derived from OpenStreetMap, no API key,
+  // no usage cap, includes a real fill-extrusion "building-3d" layer out of the box.
+  var MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+  var GENEVA_CENTER = [6.1432, 46.2044];   // [lon, lat] — Cantón de Ginebra / Canton de Genève
+  var GENEVA_INITIAL_ZOOM = 15.3;
+  var GENEVA_INITIAL_PITCH = 58;
+  var GENEVA_INITIAL_BEARING = -18;
+  // Nominatim viewbox biases search results toward the canton (left,top,right,bottom = minLon,maxLat,maxLon,minLat)
+  var GENEVA_VIEWBOX = "5.95,46.32,6.35,46.10";
+  var FLOOR_HEIGHT_M = 3.2; // assumed floor-to-floor height, for translating "pisos" into a real extrusion height
+  var METERS_PER_DEG_LAT = 111320;
+  var NOMINATIM_MIN_INTERVAL_MS = 1100; // Nominatim usage policy: max ~1 request/second
+
+  /*
+   * -----------------------------------------------------------------------
+   * FOTORREALISTA / PAGO (opcional, no activado):
+   * Para reemplazar esta vista por los Google Photorealistic 3D Tiles habría que:
+   *   1) Crear un proyecto en Google Cloud, habilitar "Map Tiles API" y ACTIVAR FACTURACIÓN
+   *      (tiene un nivel gratuito limitado, pero requiere tarjeta / billing account).
+   *   2) Generar una API key restringida a ese proyecto.
+   *   3) MapLibre no lee 3D Tiles nativamente: hace falta un renderer de 3D Tiles, por ejemplo
+   *      deck.gl (@deck.gl/geo-layers → Tile3DLayer) superpuesto a MapLibre, o CesiumJS en vez de MapLibre.
+   * Ejemplo (NO funcional, solo referencia — requiere las libs de deck.gl y una key propia):
+   *
+   *   // import { Tile3DLayer } from '@deck.gl/geo-layers';
+   *   // const GOOGLE_3D_TILES_KEY = "TU_API_KEY_DE_PAGO";
+   *   // const tiles3DLayer = new Tile3DLayer({
+   *   //   id: 'google-3d-tiles',
+   *   //   data: `https://tile.googleapis.com/v1/3dtiles/root.json?key=${GOOGLE_3D_TILES_KEY}`,
+   *   //   loadOptions: { tileset: { throttleRequests: true } }
+   *   // });
+   *
+   * Mientras tanto, todo lo de abajo usa exclusivamente MapLibre GL JS + tiles OpenFreeMap (OSM)
+   * + geocodificación Nominatim — sin key, sin facturación.
+   * -----------------------------------------------------------------------
+   */
+
+  var STR = {
+    es: {
+      eyebrow: "Herramienta de planificación · Horizonte 2050",
+      title: "Huella de suelo según cantidad de pisos",
+      subtitle: "Simulador de superficie de suelo ocupada a superficie de plancher constante, para estimar los requerimientos de distintos equipamientos públicos.",
+      sectionInputsTitle: "Datos del equipamiento",
+      sbpLabel: "Superficie bruta de plancher",
+      sbpHint: "Superficie total construida, sumando todos los niveles.",
+      pisosLabel: "Cantidad de pisos",
+      pisosHint: "Arrastrá el cursor para simular distintos escenarios.",
+      pisoWord: function(n){ return n === 1 ? "piso" : "pisos"; },
+      resultSectionTitle: "Superficie de suelo ocupada (huella)",
+      buildingSectionTitle: "Esquema del edificio",
+      diagramCaption: "La línea punteada muestra la huella de referencia con 2 pisos (base).",
+      chartSectionTitle: "Relación entre pisos y huella (1 a 20 pisos)",
+      curveLegendLabel: "Huella según pisos",
+      baseLegendLabel: "Base: 2 pisos",
+      currentLegendLabel: "Escenario actual",
+      chartXAxisLabel: "Cantidad de pisos",
+      chartYAxisLabel: "Huella",
+      tableToggleLabel: "Ver tabla de datos",
+      tableColPisos: "Pisos",
+      tableColHuella: "Huella",
+      addEquipoLabel: "+ Agregar equipamiento",
+      removeEquipoLabel: "Eliminar equipamiento",
+      namePlaceholder: "Nombre del equipamiento",
+      equipoEyebrowPrefix: "Equipamiento",
+      totalSectionTitle: "Total general de superficie de suelo ocupada",
+      emptyStateText: "Todavía no agregaste ningún equipamiento. Usá el botón de abajo para sumar el primero.",
+      panoramaEyebrow: "Panorama general",
+      panoramaTitle: "Plano de ocupación de suelo",
+      panoramaHint: "Cada rectángulo representa, a escala, la huella actual de un equipamiento. El área rayada muestra el suelo liberado respecto de la referencia de 2 pisos por equipamiento.",
+      statReferenceLabel: "Referencia (2 pisos c/u)",
+      statCurrentLabel: "Ocupado actual",
+      statFreedLabel: "Suelo liberado",
+      statExceedLabel: "Por encima de la referencia",
+      panoramaBaseLineLabel: "Referencia (2 pisos c/u)",
+      panoramaScaleNoteTemplate: function(value, unit){ return "Cada celda de la cuadrícula equivale a " + value + " " + unit + "."; },
+      footerNote: "Modelo simplificado de planificación: asume que la superficie bruta de plancher total se mantiene constante independientemente de la cantidad de pisos, sin descontar la superficie adicional que suele requerir la circulación vertical (escaleras, ascensores, núcleos estructurales) en edificios más altos.",
+      tooltipPisos: "Pisos",
+      tooltipHuella: "Huella",
+      comparisonBase: function(n){ return "Con <strong>" + n + " " + STR.es.pisoWord(n) + "</strong>, esta es la configuración base."; },
+      comparisonReduce: function(n, pct){ return "Con <strong>" + n + " " + STR.es.pisoWord(n) + "</strong>, la huella se reduce <strong>" + pct + "%</strong> respecto de la configuración base de 2 pisos."; },
+      comparisonIncrease: function(n, pct){ return "Con <strong>" + n + " " + STR.es.pisoWord(n) + "</strong>, la huella aumenta <strong>" + pct + "%</strong> respecto de la configuración base de 2 pisos."; },
+      tabToolLabel: "Herramienta",
+      tabMapLabel: "Mapa 3D",
+      mapEyebrow: "Vista territorial",
+      mapTitle: "Mapa 3D — Cantón de Ginebra",
+      mapHint: "Ubicá cada equipamiento en una dirección o coordenada real dentro de Ginebra. La altura del volumen representa la cantidad de pisos y su base representa la huella de suelo calculada: movés un slider en la pestaña Herramienta y el edificio crece o baja en el mapa.",
+      mapFitLabel: "Centrar en los equipamientos",
+      mapAttribHint: "Datos de mapa: © colaboradores de OpenStreetMap · estilo OpenFreeMap · MapLibre GL JS",
+      mapEmptyText: "Todavía no agregaste ningún equipamiento. Volvé a la pestaña \"Herramienta\" para sumar el primero.",
+      mapLoadErrorText: "No se pudo cargar el mapa 3D (requiere conexión a internet y acceso a unpkg.com / tiles.openfreemap.org).",
+      mapOverlapNote: "El volumen representa el edificio proyectado y puede superponerse a construcciones existentes en el sitio. Altura estimada: 3,2 m por piso.",
+      locationLabel: "Ubicación en el mapa",
+      locationHint: "Ingresá una dirección de Ginebra o coordenadas exactas (lat/long).",
+      geocodeButtonLabel: "Buscar",
+      geocodingStatus: "Buscando…",
+      geocodeOkStatus: function(lat, lon){ return "Ubicado: " + lat + ", " + lon; },
+      geocodeErrorStatus: "No se encontró la dirección. Probá con otra o ingresá coordenadas manualmente.",
+      viewOnMapLabel: "Ver en el mapa",
+      unplacedTitle: "Sin ubicar",
+      unplacedHint: "cargá una dirección o coordenadas para verlo en el mapa.",
+      locale: "es-AR"
+    },
+    fr: {
+      eyebrow: "Outil de planification · Horizon 2050",
+      title: "Emprise au sol selon le nombre d'étages",
+      subtitle: "Simulateur de surface de sol occupée à surface de plancher constante, pour estimer les besoins de différents équipements publics.",
+      sectionInputsTitle: "Données de l'équipement",
+      sbpLabel: "Surface brute de plancher",
+      sbpHint: "Surface totale construite, tous niveaux confondus.",
+      pisosLabel: "Nombre d'étages",
+      pisosHint: "Faites glisser le curseur pour simuler différents scénarios.",
+      pisoWord: function(n){ return n === 1 ? "étage" : "étages"; },
+      resultSectionTitle: "Surface de sol occupée (emprise)",
+      buildingSectionTitle: "Schéma du bâtiment",
+      diagramCaption: "La ligne pointillée montre l'emprise de référence à 2 étages (référence).",
+      chartSectionTitle: "Relation entre étages et emprise (1 à 20 étages)",
+      curveLegendLabel: "Emprise selon le nombre d'étages",
+      baseLegendLabel: "Référence : 2 étages",
+      currentLegendLabel: "Scénario actuel",
+      chartXAxisLabel: "Nombre d'étages",
+      chartYAxisLabel: "Emprise",
+      tableToggleLabel: "Voir le tableau de données",
+      tableColPisos: "Étages",
+      tableColHuella: "Emprise",
+      addEquipoLabel: "+ Ajouter un équipement",
+      removeEquipoLabel: "Supprimer l'équipement",
+      namePlaceholder: "Nom de l'équipement",
+      equipoEyebrowPrefix: "Équipement",
+      totalSectionTitle: "Total général de la surface de sol occupée",
+      emptyStateText: "Vous n'avez pas encore ajouté d'équipement. Utilisez le bouton ci-dessous pour ajouter le premier.",
+      panoramaEyebrow: "Panorama général",
+      panoramaTitle: "Plan d'occupation du sol",
+      panoramaHint: "Chaque rectangle représente, à l'échelle, l'emprise actuelle d'un équipement. La zone hachurée montre le sol libéré par rapport à la référence de 2 étages par équipement.",
+      statReferenceLabel: "Référence (2 étages/u)",
+      statCurrentLabel: "Occupation actuelle",
+      statFreedLabel: "Sol libéré",
+      statExceedLabel: "Au-dessus de la référence",
+      panoramaBaseLineLabel: "Référence (2 étages/u)",
+      panoramaScaleNoteTemplate: function(value, unit){ return "Chaque case de la grille équivaut à " + value + " " + unit + "."; },
+      footerNote: "Modèle simplifié de planification : suppose que la surface brute de plancher totale reste constante quel que soit le nombre d'étages, sans déduire la surface supplémentaire généralement nécessaire pour la circulation verticale (escaliers, ascenseurs, noyaux structurels) dans les bâtiments plus hauts.",
+      tooltipPisos: "Étages",
+      tooltipHuella: "Emprise",
+      comparisonBase: function(n){ return "Avec <strong>" + n + " " + STR.fr.pisoWord(n) + "</strong>, il s'agit de la configuration de référence."; },
+      comparisonReduce: function(n, pct){ return "Avec <strong>" + n + " " + STR.fr.pisoWord(n) + "</strong>, l'emprise diminue de <strong>" + pct + " %</strong> par rapport à la configuration de référence de 2 étages."; },
+      comparisonIncrease: function(n, pct){ return "Avec <strong>" + n + " " + STR.fr.pisoWord(n) + "</strong>, l'emprise augmente de <strong>" + pct + " %</strong> par rapport à la configuration de référence de 2 étages."; },
+      tabToolLabel: "Outil",
+      tabMapLabel: "Carte 3D",
+      mapEyebrow: "Vue territoriale",
+      mapTitle: "Carte 3D — Canton de Genève",
+      mapHint: "Localisez chaque équipement à une adresse ou des coordonnées réelles à Genève. La hauteur du volume représente le nombre d'étages et sa base représente l'emprise au sol calculée : déplacez un curseur dans l'onglet Outil et le bâtiment grandit ou rétrécit sur la carte.",
+      mapFitLabel: "Centrer sur les équipements",
+      mapAttribHint: "Données cartographiques : © contributeurs d'OpenStreetMap · style OpenFreeMap · MapLibre GL JS",
+      mapEmptyText: "Vous n'avez pas encore ajouté d'équipement. Retournez à l'onglet « Outil » pour ajouter le premier.",
+      mapLoadErrorText: "Impossible de charger la carte 3D (connexion internet et accès à unpkg.com / tiles.openfreemap.org requis).",
+      mapOverlapNote: "Le volume représente le bâtiment projeté et peut chevaucher des constructions existantes sur le site. Hauteur estimée : 3,2 m par étage.",
+      locationLabel: "Emplacement sur la carte",
+      locationHint: "Saisissez une adresse à Genève ou des coordonnées exactes (lat/long).",
+      geocodeButtonLabel: "Rechercher",
+      geocodingStatus: "Recherche…",
+      geocodeOkStatus: function(lat, lon){ return "Localisé : " + lat + ", " + lon; },
+      geocodeErrorStatus: "Adresse introuvable. Essayez une autre adresse ou saisissez les coordonnées manuellement.",
+      viewOnMapLabel: "Voir sur la carte",
+      unplacedTitle: "Non localisés",
+      unplacedHint: "ajoutez une adresse ou des coordonnées pour le voir sur la carte.",
+      locale: "fr-FR"
+    }
+  };
+
+  var state = {
+    lang: "es",
+    nextId: 1,
+    items: []
+  };
+
+  var containerEl = document.getElementById("equipos-container");
+  var emptyStateEl = document.getElementById("empty-state");
+  var btnAddEquipo = document.getElementById("btn-add-equipo");
+  var totalHeroNumber = document.getElementById("total-hero-number");
+  var totalHeroSecondary = document.getElementById("total-hero-secondary");
+  var btnLangEs = document.getElementById("btn-lang-es");
+  var btnLangFr = document.getElementById("btn-lang-fr");
+
+  var panoramaSvg = document.getElementById("panorama-svg");
+  var panoramaEmpty = document.getElementById("panorama-empty");
+  var panoramaLegend = document.getElementById("panorama-legend");
+  var panoramaScaleNote = document.getElementById("panorama-scale-note");
+  var statReferenceEl = document.getElementById("panorama-stat-reference");
+  var statCurrentEl = document.getElementById("panorama-stat-current");
+  var statFreedEl = document.getElementById("panorama-stat-freed");
+  var statExceedWrap = document.getElementById("panorama-stat-exceed-wrap");
+  var statExceedEl = document.getElementById("panorama-stat-exceed");
+
+  var tabBtnTool = document.getElementById("tab-btn-tool");
+  var tabBtnMap = document.getElementById("tab-btn-map");
+  var panelTool = document.getElementById("panel-tool");
+  var panelMap = document.getElementById("panel-map");
+  var mapContainer = document.getElementById("map3d");
+  var mapEmptyEl = document.getElementById("map-empty");
+  var mapLegendEl = document.getElementById("map-legend");
+  var mapUnplacedEl = document.getElementById("map-unplaced");
+  var btnMapFit = document.getElementById("btn-map-fit");
+
+  var map = null;
+  var mapReady = false;
+  var mapLoadFailed = false;
+  var hasAutoFitted = false;
+  var lastNominatimRequestAt = 0;
+  var geocodeChain = Promise.resolve();
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var n = document.createElementNS(SVGNS, tag);
+    for (var k in attrs){ n.setAttribute(k, attrs[k]); }
+    return n;
+  }
+
+  function escapeHtml(s){
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function fmt(value, maxDecimals){
+    var locale = STR[state.lang].locale;
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: maxDecimals, minimumFractionDigits: 0 }).format(value);
+  }
+  function round2(v){ return Math.round(v * 100) / 100; }
+
+  function getSbpM2(item){
+    var v = item.sbpValue;
+    if (!isFinite(v) || v <= 0) v = 0.01;
+    return item.unit === "ha" ? v * HA_TO_M2 : v;
+  }
+  function huellaM2(item, pisos){
+    return getSbpM2(item) / pisos;
+  }
+  function huellaInUnit(item, pisos, unit){
+    var m2 = huellaM2(item, pisos);
+    return unit === "ha" ? m2 / HA_TO_M2 : m2;
+  }
+
+  function niceMax(value){
+    if (value <= 0) return 1;
+    var exp = Math.floor(Math.log10(value));
+    var f = value / Math.pow(10, exp);
+    var niceF;
+    if (f <= 1) niceF = 1;
+    else if (f <= 2) niceF = 2;
+    else if (f <= 5) niceF = 5;
+    else niceF = 10;
+    return niceF * Math.pow(10, exp);
+  }
+
+  function truncateLabel(s, maxChars){
+    if (maxChars < 3) maxChars = 3;
+    if (s.length <= maxChars) return s;
+    return s.slice(0, maxChars - 1) + "…";
+  }
+
+  /* ---------------- Squarified treemap ---------------- */
+  function rowWorst(row, side){
+    if (side <= 0) return Infinity;
+    var sum = 0, maxA = -Infinity, minA = Infinity;
+    for (var i = 0; i < row.length; i++){
+      var a = row[i].area;
+      sum += a;
+      if (a > maxA) maxA = a;
+      if (a < minA) minA = a;
+    }
+    if (sum <= 0) return Infinity;
+    var r1 = (side * side * maxA) / (sum * sum);
+    var r2 = (sum * sum) / (side * side * minA);
+    return Math.max(r1, r2);
+  }
+  function squarifyRec(items, x, y, w, h, result){
+    if (items.length === 0) return;
+    if (items.length === 1 || w <= 0 || h <= 0){
+      result.push({ x: x, y: y, w: w, h: h, data: items[0] });
+      return;
+    }
+    var isWide = w >= h;
+    var side = isWide ? h : w;
+    var row = [items[0]];
+    var best = rowWorst(row, side);
+    var i;
+    for (i = 1; i < items.length; i++){
+      var testRow = row.concat([items[i]]);
+      var testWorst = rowWorst(testRow, side);
+      if (testWorst <= best){
+        row = testRow;
+        best = testWorst;
+      } else {
+        break;
+      }
+    }
+    var rowSum = row.reduce(function(s, it){ return s + it.area; }, 0);
+    var rowThickness = side > 0 ? rowSum / side : 0;
+    var rest = items.slice(row.length);
+    if (isWide){
+      var cy = y;
+      row.forEach(function(it){
+        var rh = rowThickness > 0 ? it.area / rowThickness : 0;
+        result.push({ x: x, y: cy, w: rowThickness, h: rh, data: it });
+        cy += rh;
+      });
+      squarifyRec(rest, x + rowThickness, y, w - rowThickness, h, result);
+    } else {
+      var cx = x;
+      row.forEach(function(it){
+        var rw = rowThickness > 0 ? it.area / rowThickness : 0;
+        result.push({ x: cx, y: y, w: rw, h: rowThickness, data: it });
+        cx += rw;
+      });
+      squarifyRec(rest, x, y + rowThickness, w, h - rowThickness, result);
+    }
+  }
+  function squarify(items, x, y, w, h){
+    var result = [];
+    if (!items.length) return result;
+    var sorted = items.slice().sort(function(a, b){ return b.area - a.area; });
+    squarifyRec(sorted, x, y, w, h, result);
+    return result;
+  }
+
+  function pickGridCell(pxPerM2){
+    var candidates = [100,200,250,500,1000,2000,2500,5000,10000,20000,25000,50000,100000,200000,250000,500000,1000000,2000000];
+    var Lpx = Math.sqrt(pxPerM2);
+    var i, cellM2, cellPx;
+    for (i = 0; i < candidates.length; i++){
+      cellM2 = candidates[i];
+      cellPx = Math.sqrt(cellM2) * Lpx;
+      if (cellPx >= 34 && cellPx <= 90) return { cellM2: cellM2, cellPx: cellPx };
+    }
+    var best = candidates[0], bestDiff = Infinity;
+    candidates.forEach(function(c){
+      var px = Math.sqrt(c) * Lpx;
+      var diff = Math.abs(px - 55);
+      if (diff < bestDiff){ bestDiff = diff; best = c; }
+    });
+    return { cellM2: best, cellPx: Math.sqrt(best) * Lpx };
+  }
+
+  /* ---------------- Panorama (site plan) ---------------- */
+  function renderPanorama(){
+    var svg = panoramaSvg;
+    while (svg.lastChild && svg.lastChild.nodeName.toLowerCase() !== "desc") svg.removeChild(svg.lastChild);
+
+    var t = STR[state.lang];
+    var items = state.items;
+    var hasItems = items.length > 0;
+    panoramaEmpty.hidden = hasItems;
+    svg.style.display = hasItems ? "" : "none";
+    panoramaLegend.innerHTML = "";
+    panoramaScaleNote.textContent = "";
+
+    if (!hasItems){
+      statReferenceEl.textContent = "—";
+      statCurrentEl.textContent = "—";
+      statFreedEl.textContent = "—";
+      statExceedWrap.hidden = true;
+      return;
+    }
+
+    var baseTotalM2 = items.reduce(function(s, it){ return s + huellaM2(it, BASE_PISOS); }, 0);
+    var currentTotalM2 = items.reduce(function(s, it){ return s + huellaM2(it, it.pisos); }, 0);
+    var referenceTotalM2 = Math.max(baseTotalM2, currentTotalM2, 1);
+
+    var FRAME_X = 60, FRAME_Y = 26, FRAME_W = 520, FRAME_H = 340;
+    var pxPerM2 = (FRAME_W * FRAME_H) / referenceTotalM2;
+
+    // frame (reference boundary) — drawn first as the base plane
+    svg.appendChild(el("rect", { x: FRAME_X, y: FRAME_Y, width: FRAME_W, height: FRAME_H, class: "panorama-frame" }));
+
+    // scale grid — drawn on top of the frame fill, like a cadastral grid on paper
+    var grid = pickGridCell(pxPerM2);
+    var gx, gy;
+    for (gx = FRAME_X; gx <= FRAME_X + FRAME_W + 0.01; gx += grid.cellPx){
+      var cx1 = Math.min(gx, FRAME_X + FRAME_W);
+      svg.appendChild(el("line", { x1: cx1, y1: FRAME_Y, x2: cx1, y2: FRAME_Y + FRAME_H, class: "panorama-grid" }));
+    }
+    for (gy = FRAME_Y; gy <= FRAME_Y + FRAME_H + 0.01; gy += grid.cellPx){
+      var cy1 = Math.min(gy, FRAME_Y + FRAME_H);
+      svg.appendChild(el("line", { x1: FRAME_X, y1: cy1, x2: FRAME_X + FRAME_W, y2: cy1, class: "panorama-grid" }));
+    }
+
+    // re-stroke the frame boundary on top so its outline reads over the grid
+    svg.appendChild(el("rect", { x: FRAME_X, y: FRAME_Y, width: FRAME_W, height: FRAME_H, class: "panorama-frame-outline" }));
+
+    // hatch pattern for freed land
+    var defs = el("defs", {});
+    var pattern = el("pattern", { id: "panorama-hatch", width: 7, height: 7, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+    pattern.appendChild(el("line", { x1: 0, y1: 0, x2: 0, y2: 7, class: "panorama-hatch-line" }));
+    defs.appendChild(pattern);
+    svg.appendChild(defs);
+
+    // current occupied band, bottom-aligned within the frame
+    var bandAreaPx = currentTotalM2 * pxPerM2;
+    var bandH = FRAME_W > 0 ? Math.min(bandAreaPx / FRAME_W, FRAME_H) : 0;
+    var bandY = FRAME_Y + (FRAME_H - bandH);
+
+    if (bandY > FRAME_Y + 0.5){
+      svg.appendChild(el("rect", {
+        x: FRAME_X, y: FRAME_Y, width: FRAME_W, height: bandY - FRAME_Y,
+        fill: "url(#panorama-hatch)"
+      }));
+    }
+
+    // base-reference marker, only meaningful when current exceeds the base scenario
+    if (currentTotalM2 > baseTotalM2 + 0.001){
+      var baseBandH = (baseTotalM2 * pxPerM2) / FRAME_W;
+      var baseLineY = FRAME_Y + (FRAME_H - baseBandH);
+      svg.appendChild(el("line", { x1: FRAME_X, y1: baseLineY, x2: FRAME_X + FRAME_W, y2: baseLineY, class: "panorama-base-line" }));
+      var baseLbl = el("text", { x: FRAME_X + 6, y: baseLineY - 6, class: "panorama-base-label" });
+      baseLbl.textContent = t.panoramaBaseLineLabel;
+      svg.appendChild(baseLbl);
+    }
+
+    // squarified parcels within the band
+    var parcelInputs = items.map(function(it, idx){
+      return { area: huellaM2(it, it.pisos) * pxPerM2, item: it, idx: idx };
+    }).filter(function(p){ return p.area > 0; });
+
+    var rects = squarify(parcelInputs, FRAME_X, bandY, FRAME_W, bandH);
+
+    rects.forEach(function(r){
+      var it = r.data.item;
+      var idx = r.data.idx;
+      var slot = (idx % 6) + 1;
+      var rw = Math.max(0, r.w - 2);
+      var rh = Math.max(0, r.h - 2);
+      var rx = r.x + 1, ry = r.y + 1;
+      svg.appendChild(el("rect", { x: rx, y: ry, width: rw, height: rh, class: "panorama-parcel slot-" + slot }));
+      var displayName = it.name && it.name.trim() ? it.name.trim() : (t.equipoEyebrowPrefix + " " + (idx + 1));
+      if (rw > 56 && rh > 22){
+        var nameLbl = el("text", { x: rx + 6, y: ry + 16, class: "panorama-parcel-label" });
+        nameLbl.textContent = truncateLabel(displayName, Math.max(4, Math.floor(rw / 6.4)));
+        svg.appendChild(nameLbl);
+        if (rh > 36){
+          var valLbl = el("text", { x: rx + 6, y: ry + 30, class: "panorama-parcel-sub" });
+          valLbl.textContent = fmt(huellaInUnit(it, it.pisos, "ha"), 2) + " ha";
+          svg.appendChild(valLbl);
+        }
+      }
+    });
+
+    // scale note
+    var cellValue = grid.cellM2 >= 10000 ? fmt(grid.cellM2 / HA_TO_M2, 2) : fmt(grid.cellM2, 0);
+    var cellUnit = grid.cellM2 >= 10000 ? "ha" : "m²";
+    panoramaScaleNote.textContent = t.panoramaScaleNoteTemplate(cellValue, cellUnit);
+
+    // legend
+    items.forEach(function(it, idx){
+      var slot = (idx % 6) + 1;
+      var displayName = it.name && it.name.trim() ? it.name.trim() : (t.equipoEyebrowPrefix + " " + (idx + 1));
+      var row = document.createElement("span");
+      row.className = "item";
+      var sw = document.createElement("span");
+      sw.className = "swatch slot-" + slot;
+      var nm = document.createElement("span");
+      nm.className = "name";
+      nm.textContent = displayName;
+      var val = document.createElement("span");
+      val.className = "value";
+      val.textContent = fmt(huellaInUnit(it, it.pisos, "ha"), 2) + " ha";
+      row.appendChild(sw); row.appendChild(nm); row.appendChild(val);
+      panoramaLegend.appendChild(row);
+    });
+
+    // stats
+    statReferenceEl.textContent = fmt(baseTotalM2 / HA_TO_M2, 2) + " ha";
+    statCurrentEl.textContent = fmt(currentTotalM2 / HA_TO_M2, 2) + " ha";
+    var freedM2 = Math.max(0, baseTotalM2 - currentTotalM2);
+    var exceedM2 = Math.max(0, currentTotalM2 - baseTotalM2);
+    var freedPct = baseTotalM2 > 0 ? (freedM2 / baseTotalM2 * 100) : 0;
+    statFreedEl.textContent = fmt(freedM2 / HA_TO_M2, 2) + " ha (" + fmt(freedPct, 1) + "%)";
+    statExceedWrap.hidden = exceedM2 <= 0.001;
+    if (exceedM2 > 0.001){
+      statExceedEl.textContent = fmt(exceedM2 / HA_TO_M2, 2) + " ha";
+    }
+  }
+
+  /* ---------------- i18n ---------------- */
+  function applyI18n(){
+    var t = STR[state.lang];
+    document.documentElement.lang = state.lang;
+    document.querySelectorAll("[data-i18n]").forEach(function(n){
+      var key = n.getAttribute("data-i18n");
+      if (t[key] !== undefined && typeof t[key] === "string"){
+        n.textContent = t[key];
+      }
+    });
+    document.querySelectorAll(".name-input").forEach(function(inp){
+      inp.placeholder = t.namePlaceholder;
+      inp.setAttribute("aria-label", t.namePlaceholder);
+    });
+    document.querySelectorAll(".btn-remove").forEach(function(b){
+      b.title = t.removeEquipoLabel;
+      b.setAttribute("aria-label", t.removeEquipoLabel);
+    });
+    document.querySelectorAll('[data-role="address"]').forEach(function(inp){
+      inp.placeholder = state.lang === "es" ? "Ej: Rue du Rhône 10, Genève" : "Ex : Rue du Rhône 10, Genève";
+      inp.setAttribute("aria-label", t.locationLabel);
+    });
+    btnLangEs.setAttribute("aria-pressed", state.lang === "es" ? "true" : "false");
+    btnLangFr.setAttribute("aria-pressed", state.lang === "fr" ? "true" : "false");
+    renumberEyebrows();
+  }
+
+  function updateEyebrow(item){
+    var t = STR[state.lang];
+    var idx = state.items.indexOf(item) + 1;
+    var label = t.equipoEyebrowPrefix + " " + idx;
+    if (item.name && item.name.trim()) label += " · " + item.name.trim().toUpperCase();
+    item.refs.eyebrow.textContent = label;
+  }
+  function renumberEyebrows(){ state.items.forEach(updateEyebrow); }
+
+  /* ---------------- Building diagram ---------------- */
+  function renderBuilding(item){
+    var svg = item.refs.buildingSvg;
+    while (svg.lastChild && svg.lastChild.nodeName.toLowerCase() !== "desc") svg.removeChild(svg.lastChild);
+
+    var W = 340, H = 300;
+    var groundY = 250;
+    var cx = W / 2;
+    var W1 = 250; // px width at pisos = 1
+    var heightBudget = 190;
+
+    var pisos = item.pisos;
+    var widthPx = Math.max(40, W1 / Math.sqrt(pisos));
+    var floorSlot = Math.min(38, Math.max(8, heightBudget / pisos));
+    var gap = 2;
+    var rectH = floorSlot - gap;
+
+    if (pisos !== BASE_PISOS){
+      var ghostW = W1 / Math.sqrt(BASE_PISOS);
+      svg.appendChild(el("rect", {
+        x: cx - ghostW/2, y: groundY - 10, width: ghostW, height: 10,
+        class: "ghost-footprint"
+      }));
+    }
+
+    for (var i = 0; i < pisos; i++){
+      var yTop = groundY - (i+1) * floorSlot + gap;
+      var rect = el("rect", {
+        x: cx - widthPx/2, y: yTop, width: widthPx, height: rectH, rx: 1.5,
+        class: "floor-rect"
+      });
+      svg.appendChild(rect);
+      if (rectH > 13 && widthPx > 50){
+        for (var m = 1; m <= 3; m++){
+          var mx = (cx - widthPx/2) + widthPx * (m/4);
+          svg.appendChild(el("line", {
+            x1: mx, y1: yTop + 2, x2: mx, y2: yTop + rectH - 2, class: "mullion"
+          }));
+        }
+      }
+    }
+
+    svg.appendChild(el("line", { x1: 20, y1: groundY, x2: W-20, y2: groundY, class: "ground-line" }));
+
+    var dimY = groundY + 26;
+    var dx1 = cx - widthPx/2, dx2 = cx + widthPx/2;
+    svg.appendChild(el("line", { x1: dx1, y1: dimY, x2: dx2, y2: dimY, class: "dim-line" }));
+    svg.appendChild(el("line", { x1: dx1, y1: dimY-5, x2: dx1, y2: dimY+5, class: "dim-line" }));
+    svg.appendChild(el("line", { x1: dx2, y1: dimY-5, x2: dx2, y2: dimY+5, class: "dim-line" }));
+    var label = el("text", { x: cx, y: dimY + 20, "text-anchor": "middle", class: "dim-label" });
+    var huellaUnitVal = huellaInUnit(item, pisos, item.unit);
+    label.textContent = fmt(huellaUnitVal, 2) + " " + (item.unit === "ha" ? "ha" : "m²");
+    svg.appendChild(label);
+  }
+
+  /* ---------------- Chart ---------------- */
+  function renderChart(item){
+    var svg = item.refs.chartSvg;
+    while (svg.lastChild && svg.lastChild.nodeName.toLowerCase() !== "desc") svg.removeChild(svg.lastChild);
+
+    var W = 560, H = 300;
+    var padL = 56, padR = 20, padT = 16, padB = 40;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+
+    var maxHuella = huellaInUnit(item, 1, item.unit);
+    var yMax = niceMax(maxHuella);
+    var xMin = 1, xMax = 20;
+
+    function xScale(p){ return padL + (p - xMin) / (xMax - xMin) * plotW; }
+    function yScale(v){ return padT + plotH - (v / yMax) * plotH; }
+
+    var yTicks = 5;
+    for (var i = 0; i <= yTicks; i++){
+      var v = yMax * i / yTicks;
+      var y = yScale(v);
+      svg.appendChild(el("line", { x1: padL, y1: y, x2: W - padR, y2: y, class: "gridline" }));
+      var tl = el("text", { x: padL - 8, y: y + 3, "text-anchor": "end", class: "axis-label" });
+      tl.textContent = fmt(v, 2);
+      svg.appendChild(tl);
+    }
+    var yTitle = el("text", {
+      x: 14, y: padT + plotH/2, "text-anchor": "middle", class: "axis-label",
+      transform: "rotate(-90 14 " + (padT + plotH/2) + ")"
+    });
+    yTitle.textContent = STR[state.lang].chartYAxisLabel + " (" + (item.unit === "ha" ? "ha" : "m²") + ")";
+    svg.appendChild(yTitle);
+
+    var xTicksArr = [1,5,10,15,20];
+    xTicksArr.forEach(function(p){
+      var x = xScale(p);
+      var tx = el("text", { x: x, y: H - padB + 18, "text-anchor": "middle", class: "axis-label" });
+      tx.textContent = String(p);
+      svg.appendChild(tx);
+    });
+    svg.appendChild(el("line", { x1: padL, y1: padT + plotH, x2: W - padR, y2: padT + plotH, class: "axis" }));
+
+    var pts = [];
+    for (var p = xMin; p <= xMax; p++){
+      pts.push([xScale(p), yScale(huellaInUnit(item, p, item.unit))]);
+    }
+    var dPath = "M " + pts.map(function(pt){ return pt[0].toFixed(2) + " " + pt[1].toFixed(2); }).join(" L ");
+    var areaPath = dPath + " L " + xScale(xMax).toFixed(2) + " " + (padT+plotH).toFixed(2) +
+                    " L " + xScale(xMin).toFixed(2) + " " + (padT+plotH).toFixed(2) + " Z";
+    svg.appendChild(el("path", { d: areaPath, class: "curve-area" }));
+    svg.appendChild(el("path", { d: dPath, class: "curve" }));
+
+    var baseX = xScale(BASE_PISOS);
+    svg.appendChild(el("line", { x1: baseX, y1: padT, x2: baseX, y2: padT+plotH, class: "base-ref-line" }));
+    var baseLabel = el("text", { x: baseX + 6, y: padT + 12, class: "base-ref-label" });
+    baseLabel.textContent = STR[state.lang].baseLegendLabel;
+    svg.appendChild(baseLabel);
+
+    var curX = xScale(item.pisos);
+    var curY = yScale(huellaInUnit(item, item.pisos, item.unit));
+    svg.appendChild(el("circle", { cx: curX, cy: curY, r: 6, class: "current-marker" }));
+
+    var hoverLine = el("line", { x1: 0, y1: padT, x2: 0, y2: padT+plotH, class: "hover-line" });
+    var hoverDot = el("circle", { cx:0, cy:0, r:4, class: "hover-dot" });
+    var tooltipBg = el("rect", { x:0, y:0, width: 96, height: 34, rx: 5, class: "tooltip-bg" });
+    var tooltipText1 = el("text", { x:0, y:0, class: "tooltip-text" });
+    var tooltipText2 = el("text", { x:0, y:0, class: "tooltip-text" });
+    svg.appendChild(hoverLine);
+    svg.appendChild(hoverDot);
+    svg.appendChild(tooltipBg);
+    svg.appendChild(tooltipText1);
+    svg.appendChild(tooltipText2);
+
+    var overlay = el("rect", { x: padL, y: padT, width: plotW, height: plotH, class: "chart-overlay" });
+    svg.appendChild(overlay);
+
+    function pisosFromClientX(clientX){
+      var rect = svg.getBoundingClientRect();
+      var scaleX = W / rect.width;
+      var localX = (clientX - rect.left) * scaleX;
+      var frac = (localX - padL) / plotW;
+      var p = Math.round(xMin + frac * (xMax - xMin));
+      return Math.min(xMax, Math.max(xMin, p));
+    }
+
+    function showHover(clientX){
+      var p = pisosFromClientX(clientX);
+      var hx = xScale(p);
+      var hy = yScale(huellaInUnit(item, p, item.unit));
+      hoverLine.setAttribute("x1", hx); hoverLine.setAttribute("x2", hx);
+      hoverLine.style.opacity = 1;
+      hoverDot.setAttribute("cx", hx); hoverDot.setAttribute("cy", hy);
+      hoverDot.style.opacity = 1;
+
+      var boxX = Math.min(W - padR - 100, Math.max(padL + 4, hx + 10));
+      var boxY = Math.max(padT + 2, hy - 40);
+      tooltipBg.setAttribute("x", boxX); tooltipBg.setAttribute("y", boxY);
+      tooltipBg.style.opacity = 0.92;
+      tooltipText1.setAttribute("x", boxX + 8); tooltipText1.setAttribute("y", boxY + 14);
+      tooltipText1.textContent = STR[state.lang].tooltipPisos + ": " + p;
+      tooltipText1.style.opacity = 1;
+      tooltipText2.setAttribute("x", boxX + 8); tooltipText2.setAttribute("y", boxY + 27);
+      tooltipText2.textContent = STR[state.lang].tooltipHuella + ": " + fmt(huellaInUnit(item, p, item.unit), 2) + (item.unit === "ha" ? " ha" : " m²");
+      tooltipText2.style.opacity = 1;
+
+      return p;
+    }
+    function hideHover(){
+      hoverLine.style.opacity = 0;
+      hoverDot.style.opacity = 0;
+      tooltipBg.style.opacity = 0;
+      tooltipText1.style.opacity = 0;
+      tooltipText2.style.opacity = 0;
+    }
+    overlay.addEventListener("mousemove", function(ev){ showHover(ev.clientX); });
+    overlay.addEventListener("mouseleave", hideHover);
+    overlay.addEventListener("click", function(ev){
+      var p = showHover(ev.clientX);
+      item.pisos = p;
+      item.refs.pisosSlider.value = String(p);
+      renderItem(item);
+      renderTotal();
+      renderPanorama();
+    });
+    overlay.addEventListener("touchmove", function(ev){
+      if (ev.touches && ev.touches[0]) showHover(ev.touches[0].clientX);
+    }, { passive: true });
+  }
+
+  /* ---------------- Table ---------------- */
+  function renderTable(item){
+    var body = item.refs.tableBody;
+    body.innerHTML = "";
+    item.refs.tableColHuella.textContent = STR[state.lang].tableColHuella + " (" + (item.unit === "ha" ? "ha" : "m²") + ")";
+    for (var p = 1; p <= 20; p++){
+      var tr = document.createElement("tr");
+      if (p === item.pisos) tr.className = "current-row";
+      var td1 = document.createElement("td");
+      td1.textContent = String(p);
+      var td2 = document.createElement("td");
+      td2.textContent = fmt(huellaInUnit(item, p, item.unit), 2);
+      tr.appendChild(td1); tr.appendChild(td2);
+      body.appendChild(tr);
+    }
+  }
+
+  /* ---------------- Hero + comparison ---------------- */
+  function renderHero(item){
+    var t = STR[state.lang];
+    var m2 = huellaM2(item, item.pisos);
+    var ha = m2 / HA_TO_M2;
+    item.refs.heroNumber.innerHTML = fmt(m2, 2) + '<span class="unit">m²</span>';
+    item.refs.heroSecondary.textContent = fmt(ha, 2) + " ha";
+
+    var baseM2 = huellaM2(item, BASE_PISOS);
+    var pct = ((m2 - baseM2) / baseM2) * 100;
+    var pctAbs = fmt(Math.abs(pct), 1);
+    var html;
+    if (item.pisos === BASE_PISOS){
+      html = t.comparisonBase(item.pisos);
+    } else if (pct < 0){
+      html = t.comparisonReduce(item.pisos, pctAbs);
+    } else {
+      html = t.comparisonIncrease(item.pisos, pctAbs);
+    }
+    item.refs.comparisonText.innerHTML = html;
+  }
+
+  /* ---------------- Per-item render ---------------- */
+  function renderItem(item){
+    var r = item.refs;
+    r.pisosValue.textContent = String(item.pisos);
+    r.pisosValueUnit.textContent = STR[state.lang].pisoWord(item.pisos);
+    r.pisosSlider.setAttribute("aria-valuenow", item.pisos);
+    var pct = ((item.pisos - 1) / 19) * 100;
+    r.pisosSlider.style.setProperty("--pct", pct + "%");
+
+    renderHero(item);
+    renderBuilding(item);
+    renderChart(item);
+    renderTable(item);
+  }
+
+  /* ---------------- Total ---------------- */
+  function renderTotal(){
+    var totalM2 = state.items.reduce(function(sum, it){ return sum + huellaM2(it, it.pisos); }, 0);
+    var totalHa = totalM2 / HA_TO_M2;
+    totalHeroNumber.innerHTML = fmt(totalM2, 2) + '<span class="unit">m²</span>';
+    totalHeroSecondary.textContent = fmt(totalHa, 2) + " ha";
+  }
+
+  function updateEmptyState(){
+    emptyStateEl.hidden = state.items.length !== 0;
+  }
+
+  /* ---------------- Card creation / mounting ---------------- */
+  function createItem(name){
+    return {
+      id: state.nextId++, name: name || "", unit: "ha", sbpValue: 25, pisos: 2, refs: null,
+      address: "", lat: null, lon: null, geoStatus: "idle" // idle | loading | ok | error
+    };
+  }
+  function hasLoc(item){
+    return item.lat != null && item.lon != null && isFinite(item.lat) && isFinite(item.lon);
+  }
+
+  function cardTemplate(item){
+    var uidS = item.id;
+    return ''
+    + '<article class="equipo-card" data-item-id="' + uidS + '">'
+    +   '<div class="equipo-header">'
+    +     '<div class="equipo-heading">'
+    +       '<p class="eyebrow equipo-eyebrow"></p>'
+    +       '<input type="text" class="name-input" data-role="name" value="' + escapeHtml(item.name) + '">'
+    +     '</div>'
+    +     '<button type="button" class="btn-remove" data-role="remove">✕</button>'
+    +   '</div>'
+    +   '<div class="equipo-grid">'
+    +     '<div class="col">'
+    +       '<section class="panel">'
+    +         '<p class="panel-title"><span class="dot"></span><span data-i18n="sectionInputsTitle">Datos del equipamiento</span></p>'
+    +         '<div class="field">'
+    +           '<label class="field-label" for="sbp-input-' + uidS + '" data-i18n="sbpLabel">Superficie bruta de plancher</label>'
+    +           '<p class="field-hint" data-i18n="sbpHint">Superficie total construida, sumando todos los niveles.</p>'
+    +           '<div class="sbp-row">'
+    +             '<input type="number" id="sbp-input-' + uidS + '" data-role="sbp" min="0.01" step="0.01" value="' + item.sbpValue + '" inputmode="decimal">'
+    +             '<div class="unit-toggle" role="group" aria-label="Unidad">'
+    +               '<button type="button" data-role="unit-ha" aria-pressed="' + (item.unit === "ha") + '">ha</button>'
+    +               '<button type="button" data-role="unit-m2" aria-pressed="' + (item.unit === "m2") + '">m²</button>'
+    +             '</div>'
+    +           '</div>'
+    +         '</div>'
+    +         '<div class="field">'
+    +           '<label class="field-label" for="pisos-slider-' + uidS + '" data-i18n="pisosLabel">Cantidad de pisos</label>'
+    +           '<p class="field-hint" data-i18n="pisosHint">Arrastrá el cursor para simular distintos escenarios.</p>'
+    +           '<div class="pisos-value-row">'
+    +             '<span class="pisos-value" data-role="pisos-value">' + item.pisos + '</span>'
+    +             '<span class="pisos-value-unit" data-role="pisos-value-unit">pisos</span>'
+    +           '</div>'
+    +           '<input type="range" id="pisos-slider-' + uidS + '" data-role="pisos-slider" min="1" max="20" step="1" value="' + item.pisos + '" aria-valuemin="1" aria-valuemax="20" aria-valuenow="' + item.pisos + '">'
+    +           '<div class="ticks"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>'
+    +         '</div>'
+    +         '<div class="field">'
+    +           '<label class="field-label" data-i18n="locationLabel">Ubicación en el mapa</label>'
+    +           '<p class="field-hint" data-i18n="locationHint">Ingresá una dirección de Ginebra o coordenadas exactas (lat/long).</p>'
+    +           '<div class="location-address-row">'
+    +             '<input type="text" data-role="address" value="' + escapeHtml(item.address) + '">'
+    +             '<button type="button" class="btn-geocode" data-role="geocode-btn" data-i18n="geocodeButtonLabel">Buscar</button>'
+    +           '</div>'
+    +           '<div class="location-coords-row">'
+    +             '<label class="coord-field"><span>lat</span><input type="number" step="0.0001" data-role="lat-input" value="' + (item.lat != null ? item.lat : "") + '"></label>'
+    +             '<label class="coord-field"><span>lon</span><input type="number" step="0.0001" data-role="lon-input" value="' + (item.lon != null ? item.lon : "") + '"></label>'
+    +           '</div>'
+    +           '<p class="location-status" data-role="location-status"></p>'
+    +           '<button type="button" class="btn-view-map" data-role="view-map-btn" data-i18n="viewOnMapLabel" hidden>Ver en el mapa</button>'
+    +         '</div>'
+    +       '</section>'
+    +       '<section class="panel hero-panel">'
+    +         '<p class="hero-label" data-i18n="resultSectionTitle">Superficie de suelo ocupada (huella)</p>'
+    +         '<p class="hero-number" data-role="hero-number">—</p>'
+    +         '<p class="hero-secondary" data-role="hero-secondary">—</p>'
+    +         '<div class="hero-divider"></div>'
+    +         '<p class="comparison" data-role="comparison-text"></p>'
+    +       '</section>'
+    +     '</div>'
+    +     '<div class="col">'
+    +       '<section class="panel">'
+    +         '<p class="panel-title"><span class="dot"></span><span data-i18n="buildingSectionTitle">Esquema del edificio</span></p>'
+    +         '<div class="diagram-wrap">'
+    +           '<svg data-role="building-svg" viewBox="0 0 340 300" role="img" aria-labelledby="building-desc-' + uidS + '">'
+    +             '<desc id="building-desc-' + uidS + '">Esquema del edificio: la base se achica y la altura crece a medida que aumentan los pisos.</desc>'
+    +           '</svg>'
+    +         '</div>'
+    +         '<p class="diagram-caption" data-i18n="diagramCaption">La línea punteada muestra la huella de referencia con 2 pisos (base).</p>'
+    +       '</section>'
+    +       '<section class="panel">'
+    +         '<p class="panel-title"><span class="dot"></span><span data-i18n="chartSectionTitle">Relación entre pisos y huella (1 a 20 pisos)</span></p>'
+    +         '<div class="chart-legend">'
+    +           '<span class="item"><span class="swatch" style="background:var(--blue)"></span><span data-i18n="curveLegendLabel">Huella según pisos</span></span>'
+    +           '<span class="item"><span class="swatch dashed"></span><span data-i18n="baseLegendLabel">Base: 2 pisos</span></span>'
+    +           '<span class="item"><span class="swatch dot" style="background:var(--orange)"></span><span data-i18n="currentLegendLabel">Escenario actual</span></span>'
+    +         '</div>'
+    +         '<svg data-role="chart-svg" viewBox="0 0 560 300" role="img" aria-labelledby="chart-desc-' + uidS + '">'
+    +           '<desc id="chart-desc-' + uidS + '">Curva de huella de suelo en función de la cantidad de pisos, entre 1 y 20.</desc>'
+    +         '</svg>'
+    +         '<p class="axis-title" data-i18n="chartXAxisLabel">Cantidad de pisos</p>'
+    +         '<details class="table-toggle">'
+    +           '<summary data-i18n="tableToggleLabel">Ver tabla de datos</summary>'
+    +           '<div class="table-scroll">'
+    +             '<table><thead><tr><th data-i18n="tableColPisos">Pisos</th><th data-role="table-col-huella" data-i18n="tableColHuella">Huella</th></tr></thead><tbody data-role="table-body"></tbody></table>'
+    +           '</div>'
+    +         '</details>'
+    +       '</section>'
+    +     '</div>'
+    +   '</div>'
+    + '</article>';
+  }
+
+  function mountCard(item){
+    containerEl.insertAdjacentHTML("beforeend", cardTemplate(item));
+    var root = containerEl.querySelector('.equipo-card[data-item-id="' + item.id + '"]');
+
+    item.refs = {
+      root: root,
+      nameInput: root.querySelector('[data-role="name"]'),
+      removeBtn: root.querySelector('[data-role="remove"]'),
+      eyebrow: root.querySelector('.equipo-eyebrow'),
+      sbpInput: root.querySelector('[data-role="sbp"]'),
+      unitHaBtn: root.querySelector('[data-role="unit-ha"]'),
+      unitM2Btn: root.querySelector('[data-role="unit-m2"]'),
+      pisosSlider: root.querySelector('[data-role="pisos-slider"]'),
+      pisosValue: root.querySelector('[data-role="pisos-value"]'),
+      pisosValueUnit: root.querySelector('[data-role="pisos-value-unit"]'),
+      heroNumber: root.querySelector('[data-role="hero-number"]'),
+      heroSecondary: root.querySelector('[data-role="hero-secondary"]'),
+      comparisonText: root.querySelector('[data-role="comparison-text"]'),
+      buildingSvg: root.querySelector('[data-role="building-svg"]'),
+      chartSvg: root.querySelector('[data-role="chart-svg"]'),
+      tableColHuella: root.querySelector('[data-role="table-col-huella"]'),
+      tableBody: root.querySelector('[data-role="table-body"]'),
+      addressInput: root.querySelector('[data-role="address"]'),
+      geocodeBtn: root.querySelector('[data-role="geocode-btn"]'),
+      latInput: root.querySelector('[data-role="lat-input"]'),
+      lonInput: root.querySelector('[data-role="lon-input"]'),
+      locationStatus: root.querySelector('[data-role="location-status"]'),
+      viewMapBtn: root.querySelector('[data-role="view-map-btn"]')
+    };
+
+    item.refs.nameInput.addEventListener("input", function(){
+      item.name = item.refs.nameInput.value;
+      updateEyebrow(item);
+      updateMapSource();
+    });
+    item.refs.removeBtn.addEventListener("click", function(){ removeItem(item.id); });
+    item.refs.sbpInput.addEventListener("input", function(){
+      var v = parseFloat(item.refs.sbpInput.value);
+      item.sbpValue = isFinite(v) && v > 0 ? v : 0.01;
+      renderItem(item);
+      renderTotal();
+      renderPanorama();
+      updateMapSource();
+    });
+    item.refs.pisosSlider.addEventListener("input", function(){
+      item.pisos = parseInt(item.refs.pisosSlider.value, 10);
+      renderItem(item);
+      renderTotal();
+      renderPanorama();
+      updateMapSource();
+    });
+    item.refs.unitHaBtn.addEventListener("click", function(){ setItemUnit(item, "ha"); });
+    item.refs.unitM2Btn.addEventListener("click", function(){ setItemUnit(item, "m2"); });
+
+    item.refs.addressInput.addEventListener("input", function(){
+      item.address = item.refs.addressInput.value;
+    });
+    item.refs.addressInput.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter"){ ev.preventDefault(); geocodeItem(item); }
+    });
+    item.refs.geocodeBtn.addEventListener("click", function(){ geocodeItem(item); });
+    item.refs.latInput.addEventListener("input", function(){ onManualCoordInput(item); });
+    item.refs.lonInput.addEventListener("input", function(){ onManualCoordInput(item); });
+    item.refs.viewMapBtn.addEventListener("click", function(){ viewItemOnMap(item); });
+
+    applyI18n();
+    renderItem(item);
+    renderLocationStatus(item);
+  }
+
+  function setItemUnit(item, newUnit){
+    if (newUnit === item.unit) return;
+    var m2 = getSbpM2(item);
+    item.unit = newUnit;
+    item.sbpValue = newUnit === "ha" ? m2 / HA_TO_M2 : m2;
+    item.refs.sbpInput.value = round2(item.sbpValue);
+    item.refs.unitHaBtn.setAttribute("aria-pressed", newUnit === "ha" ? "true" : "false");
+    item.refs.unitM2Btn.setAttribute("aria-pressed", newUnit === "m2" ? "true" : "false");
+    renderItem(item);
+    renderTotal();
+    renderPanorama();
+    updateMapSource();
+  }
+
+  function addItem(name){
+    var item = createItem(name);
+    state.items.push(item);
+    mountCard(item);
+    renderTotal();
+    renderPanorama();
+    updateEmptyState();
+    updateMapSource();
+    return item;
+  }
+
+  function removeItem(id){
+    var idx = state.items.findIndex(function(it){ return it.id === id; });
+    if (idx === -1) return;
+    var item = state.items[idx];
+    item.refs.root.remove();
+    state.items.splice(idx, 1);
+    renumberEyebrows();
+    renderTotal();
+    renderPanorama();
+    updateEmptyState();
+    updateMapSource();
+  }
+
+  /* ---------------- Global events ---------------- */
+  btnAddEquipo.addEventListener("click", function(){ addItem(""); });
+
+  function setLang(newLang){
+    if (newLang === state.lang) return;
+    state.lang = newLang;
+    applyI18n();
+    state.items.forEach(renderItem);
+    state.items.forEach(renderLocationStatus);
+    renderTotal();
+    renderPanorama();
+    updateMapSource();
+  }
+  btnLangEs.addEventListener("click", function(){ setLang("es"); });
+  btnLangFr.addEventListener("click", function(){ setLang("fr"); });
+
+  /* ---------------- 3D map (MapLibre GL JS + OpenFreeMap/OSM tiles) ---------------- */
+  function slotVarName(idx){
+    var n = (idx % 6) + 1;
+    return n === 1 ? "--blue" : "--slot-" + n;
+  }
+  function slotColor(idx){
+    return getComputedStyle(document.documentElement).getPropertyValue(slotVarName(idx)).trim();
+  }
+
+  function footprintRing(lat, lon, huellaM2v){
+    var side = Math.sqrt(Math.max(huellaM2v, 1)); // meters
+    var half = side / 2;
+    var dLat = half / METERS_PER_DEG_LAT;
+    var dLon = half / (METERS_PER_DEG_LAT * Math.cos(lat * Math.PI / 180));
+    return [
+      [lon - dLon, lat - dLat],
+      [lon + dLon, lat - dLat],
+      [lon + dLon, lat + dLat],
+      [lon - dLon, lat + dLat],
+      [lon - dLon, lat - dLat]
+    ];
+  }
+
+  function buildMapFeatureCollection(){
+    var t = STR[state.lang];
+    var features = [];
+    state.items.forEach(function(it, idx){
+      if (!hasLoc(it)) return;
+      var huella = huellaM2(it, it.pisos);
+      var heightM = Math.max(it.pisos * FLOOR_HEIGHT_M, 1);
+      var displayName = it.name && it.name.trim() ? it.name.trim() : (t.equipoEyebrowPrefix + " " + (idx + 1));
+      features.push({
+        type: "Feature",
+        properties: {
+          name: displayName,
+          color: slotColor(idx),
+          height: heightM,
+          pisos: it.pisos,
+          pisosLabel: t.pisosLabel,
+          huellaLabel: t.resultSectionTitle,
+          huellaText: fmt(huellaInUnit(it, it.pisos, "ha"), 2) + " ha"
+        },
+        geometry: { type: "Polygon", coordinates: [footprintRing(it.lat, it.lon, huella)] }
+      });
+    });
+    return { type: "FeatureCollection", features: features };
+  }
+
+  function ensureMapInitialized(){
+    if (map || mapLoadFailed) return;
+    if (typeof maplibregl === "undefined"){
+      mapLoadFailed = true;
+      mapContainer.hidden = true;
+      mapEmptyEl.hidden = false;
+      mapEmptyEl.textContent = STR[state.lang].mapLoadErrorText;
+      return;
+    }
+    map = new maplibregl.Map({
+      container: mapContainer,
+      style: MAP_STYLE_URL, // OpenFreeMap "liberty" — free vector tiles from OSM data, no key
+      center: GENEVA_CENTER,
+      zoom: GENEVA_INITIAL_ZOOM,
+      pitch: GENEVA_INITIAL_PITCH,
+      bearing: GENEVA_INITIAL_BEARING,
+      antialias: true
+    });
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+    // attribution to OpenStreetMap contributors is added automatically by MapLibre's default
+    // AttributionControl — required by the OSM tile usage policy, do not remove it.
+
+    map.on("load", function(){
+      map.addSource("equip-footprints", { type: "geojson", data: buildMapFeatureCollection() });
+      map.addLayer({
+        id: "equip-extrusion",
+        type: "fill-extrusion",
+        source: "equip-footprints",
+        paint: {
+          "fill-extrusion-color": ["get", "color"],
+          "fill-extrusion-height": ["get", "height"],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 0.9
+        }
+      });
+      map.addLayer({
+        id: "equip-outline",
+        type: "line",
+        source: "equip-footprints",
+        paint: { "line-color": "#ffffff", "line-width": 1.2, "line-opacity": 0.85 }
+      });
+      map.addLayer({
+        id: "equip-label",
+        type: "symbol",
+        source: "equip-footprints",
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": 12,
+          "text-font": ["Noto Sans Bold"],
+          "text-anchor": "center",
+          "text-allow-overlap": false
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0.65)",
+          "text-halo-width": 1.2
+        }
+      });
+
+      map.on("mouseenter", "equip-extrusion", function(){ map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "equip-extrusion", function(){ map.getCanvas().style.cursor = ""; });
+      map.on("click", "equip-extrusion", function(e){
+        var p = e.features[0].properties;
+        new maplibregl.Popup({ closeButton: true })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            "<strong>" + escapeHtml(p.name) + "</strong><br>" +
+            escapeHtml(p.pisosLabel) + ": " + p.pisos + "<br>" +
+            escapeHtml(p.huellaLabel) + ": " + escapeHtml(p.huellaText)
+          )
+          .addTo(map);
+      });
+
+      mapReady = true;
+      updateMapSource();
+    });
+  }
+
+  function updateMapSource(){
+    updateMapLegendAndUnplaced();
+    if (!mapReady || !map) return;
+    map.resize(); // cheap no-op when size is unchanged; guards against the map container having toggled visibility
+    var src = map.getSource("equip-footprints");
+    if (!src) return;
+    var fc = buildMapFeatureCollection();
+    src.setData(fc);
+    if (!hasAutoFitted && fc.features.length > 0){
+      hasAutoFitted = true;
+      fitAllLocated({ duration: 900 });
+    }
+  }
+
+  function fitAllLocated(opts){
+    if (!mapReady || !map) return;
+    var located = state.items.filter(hasLoc);
+    if (!located.length) return;
+    if (located.length === 1){
+      map.flyTo(Object.assign({
+        center: [located[0].lon, located[0].lat], zoom: 17,
+        pitch: GENEVA_INITIAL_PITCH, bearing: GENEVA_INITIAL_BEARING
+      }, opts || {}));
+      return;
+    }
+    var bounds = new maplibregl.LngLatBounds();
+    located.forEach(function(it){ bounds.extend([it.lon, it.lat]); });
+    map.fitBounds(bounds, Object.assign({ padding: 90, pitch: GENEVA_INITIAL_PITCH, maxZoom: 17.5 }, opts || {}));
+  }
+
+  function viewItemOnMap(item){
+    if (!hasLoc(item)) return;
+    activateTab("map");
+    ensureMapInitialized();
+    var fly = function(){
+      map.flyTo({ center: [item.lon, item.lat], zoom: 17.5, pitch: GENEVA_INITIAL_PITCH, bearing: GENEVA_INITIAL_BEARING, duration: 1200 });
+    };
+    if (mapReady) fly(); else map.once("load", fly);
+  }
+
+  function updateMapLegendAndUnplaced(){
+    var t = STR[state.lang];
+    var items = state.items;
+    mapEmptyEl.hidden = items.length > 0;
+    if (mapLoadFailed){
+      mapEmptyEl.hidden = false;
+      mapEmptyEl.textContent = t.mapLoadErrorText;
+    }
+    mapContainer.style.display = (items.length > 0 && !mapLoadFailed) ? "" : "none";
+
+    mapLegendEl.innerHTML = "";
+    var located = items.filter(hasLoc);
+    located.forEach(function(it){
+      var idx = items.indexOf(it);
+      var displayName = it.name && it.name.trim() ? it.name.trim() : (t.equipoEyebrowPrefix + " " + (idx + 1));
+      var row = document.createElement("span");
+      row.className = "item";
+      var sw = document.createElement("span");
+      sw.className = "swatch slot-" + ((idx % 6) + 1);
+      var nm = document.createElement("span");
+      nm.className = "name";
+      nm.textContent = displayName;
+      var val = document.createElement("span");
+      val.className = "value";
+      val.textContent = fmt(huellaInUnit(it, it.pisos, "ha"), 2) + " ha";
+      row.appendChild(sw); row.appendChild(nm); row.appendChild(val);
+      mapLegendEl.appendChild(row);
+    });
+
+    var unplaced = items.filter(function(it){ return !hasLoc(it); });
+    if (!items.length){
+      mapUnplacedEl.textContent = "";
+    } else if (unplaced.length){
+      var names = unplaced.map(function(it){
+        var idx = items.indexOf(it);
+        return it.name && it.name.trim() ? it.name.trim() : (t.equipoEyebrowPrefix + " " + (idx + 1));
+      });
+      mapUnplacedEl.innerHTML = "<strong>" + escapeHtml(t.unplacedTitle) + ":</strong> " + escapeHtml(names.join(", ")) + " — " + escapeHtml(t.unplacedHint);
+    } else {
+      mapUnplacedEl.textContent = "";
+    }
+  }
+
+  function renderLocationStatus(item){
+    if (!item.refs || !item.refs.locationStatus) return;
+    var t = STR[state.lang];
+    var el2 = item.refs.locationStatus;
+    if (item.geoStatus === "loading"){
+      el2.textContent = t.geocodingStatus;
+      el2.setAttribute("data-state", "loading");
+    } else if (item.geoStatus === "ok" && hasLoc(item)){
+      el2.textContent = t.geocodeOkStatus(item.lat.toFixed(4), item.lon.toFixed(4));
+      el2.setAttribute("data-state", "ok");
+    } else if (item.geoStatus === "error"){
+      el2.textContent = t.geocodeErrorStatus;
+      el2.setAttribute("data-state", "error");
+    } else {
+      el2.textContent = "";
+      el2.removeAttribute("data-state");
+    }
+    item.refs.viewMapBtn.hidden = !hasLoc(item);
+  }
+
+  function syncLocationInputs(item){
+    if (!item.refs) return;
+    item.refs.latInput.value = item.lat != null ? item.lat : "";
+    item.refs.lonInput.value = item.lon != null ? item.lon : "";
+  }
+
+  function onManualCoordInput(item){
+    var latStr = item.refs.latInput.value.trim();
+    var lonStr = item.refs.lonInput.value.trim();
+    if (latStr === "" || lonStr === ""){
+      item.lat = null; item.lon = null;
+      item.geoStatus = "idle";
+    } else {
+      var lat = parseFloat(latStr), lon = parseFloat(lonStr);
+      if (isFinite(lat) && isFinite(lon)){
+        item.lat = lat; item.lon = lon;
+        item.geoStatus = "ok";
+      } else {
+        item.geoStatus = "idle";
+      }
+    }
+    renderLocationStatus(item);
+    updateMapSource();
+  }
+
+  function throttledNominatimFetch(url){
+    var now = Date.now();
+    var wait = Math.max(0, NOMINATIM_MIN_INTERVAL_MS - (now - lastNominatimRequestAt));
+    return new Promise(function(resolve){ setTimeout(resolve, wait); }).then(function(){
+      lastNominatimRequestAt = Date.now();
+      // Client-side fetch: the browser controls the User-Agent header (can't be overridden from JS).
+      // For heavier/production use, proxy this through your own backend with a proper
+      // identifying User-Agent, per Nominatim's usage policy.
+      return fetch(url, { headers: { "Accept": "application/json" } });
+    });
+  }
+
+  function geocodeItem(item){
+    var query = (item.address || "").trim();
+    if (!query) return;
+    item.geoStatus = "loading";
+    renderLocationStatus(item);
+    var url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ch&viewbox="
+      + encodeURIComponent(GENEVA_VIEWBOX) + "&bounded=1&q=" + encodeURIComponent(query);
+    geocodeChain = geocodeChain.then(function(){ return throttledNominatimFetch(url); })
+      .then(function(resp){ return resp.json(); })
+      .then(function(results){
+        if (results && results.length){
+          item.lat = parseFloat(results[0].lat);
+          item.lon = parseFloat(results[0].lon);
+          item.geoStatus = "ok";
+        } else {
+          item.geoStatus = "error";
+        }
+        renderLocationStatus(item);
+        syncLocationInputs(item);
+        updateMapSource();
+      })
+      .catch(function(){
+        item.geoStatus = "error";
+        renderLocationStatus(item);
+      });
+    return geocodeChain;
+  }
+
+  function activateTab(name){
+    var isMap = name === "map";
+    panelTool.hidden = isMap;
+    panelMap.hidden = !isMap;
+    tabBtnTool.setAttribute("aria-selected", isMap ? "false" : "true");
+    tabBtnMap.setAttribute("aria-selected", isMap ? "true" : "false");
+    tabBtnTool.classList.toggle("active", !isMap);
+    tabBtnMap.classList.toggle("active", isMap);
+    if (isMap){
+      ensureMapInitialized();
+      setTimeout(function(){ if (map) map.resize(); }, 0);
+    }
+  }
+  tabBtnTool.addEventListener("click", function(){ activateTab("tool"); });
+  tabBtnMap.addEventListener("click", function(){ activateTab("map"); });
+  btnMapFit.addEventListener("click", function(){ fitAllLocated({ duration: 700 }); });
+  window.addEventListener("resize", function(){ if (map) map.resize(); });
+
+  /* ---------------- Boot ---------------- */
+  addItem("Escuelas");
+  applyI18n();
+  updateEmptyState();
+})();
+</script>
+</body>
+</html>
